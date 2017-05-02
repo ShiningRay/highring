@@ -1,65 +1,52 @@
-'use strict'
-
-const upring = require('..')
-
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const index_1 = require("../src/index");
 // returns a key allocated to the passed instance
-function getKey (instance) {
-  let key = 'hello'
-
-  while (!instance.allocatedToMe(key)) {
-    key += '1'
-  }
-
-  return key
+function getKey(instance) {
+    let key = 'hello';
+    while (!instance.allocatedToMe(key)) {
+        key += '1';
+    }
+    return key;
 }
-
-module.exports.getKey = getKey
-
-function opts (opts) {
-  opts = opts || {}
-  opts.hashring = opts.hashring || {}
-  opts.hashring.joinTimeout = 200
-  opts.hashring.replicaPoints = 10
-  return opts
+exports.getKey = getKey;
+function opts(opts) {
+    opts = opts || {};
+    opts.hashring = opts.hashring || {};
+    opts.hashring.joinTimeout = 200;
+    opts.hashring.replicaPoints = 10;
+    return opts;
 }
-
-module.exports.opts = opts
-
+exports.opts = opts;
 // boot one instance
-function boot (t, parent, cb) {
-  if (typeof parent === 'function') {
-    cb = parent
-    parent = null
-  }
-
-  const base = []
-  if (parent) {
-    base.push(parent.whoami())
-  }
-
-  const instance = upring(opts({
-    logLevel: 'error',
-    base: base
-  }))
-
-  t.tearDown(instance.close.bind(instance))
-
-  instance.on('up', () => {
-    cb(instance)
-  })
+function boot(parent, cb) {
+    if (typeof parent === 'function') {
+        cb = parent;
+        parent = null;
+    }
+    const base = [];
+    if (parent) {
+        base.push(parent.whoami());
+    }
+    const instance = new index_1.default(opts({
+        logLevel: 'error',
+        base: base
+    }));
+    let done = instance.close.bind(instance);
+    instance.on('up', () => {
+        cb(instance, done);
+    });
 }
-
-module.exports.boot = boot
-
+exports.boot = boot;
 // boot two instances
-function bootTwo (t, cb) {
-  boot(t, (i1) => {
-    t.pass('i1 up')
-    boot(t, i1, (i2) => {
-      t.pass('i2 up')
-      cb(i1, i2)
-    })
-  })
+function bootTwo(cb) {
+    boot((i1, done1) => {
+        console.log('i1 up');
+        boot(i1, (i2, done2) => {
+            console.log('i2 up');
+            cb(i1, i2, () => { return Promise.all[done1(), done2()]; });
+        });
+    });
 }
-
-module.exports.bootTwo = bootTwo
+exports.bootTwo = bootTwo;
+//# sourceMappingURL=helper.js.map

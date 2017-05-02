@@ -1,8 +1,8 @@
 'use strict'
 
-const createTree = require('functional-red-black-tree')
+import createTree = require('functional-red-black-tree')
 
-function build (hashring) {
+export default function Replicator (hashring) {
   var tree = createTree()
 
   return { replica, check }
@@ -52,5 +52,3 @@ function build (hashring) {
     }
   }
 }
-
-module.exports = build

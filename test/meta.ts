@@ -1,7 +1,5 @@
-'use strict'
-
-const t = require('tap')
-const boot = require('./helper').boot
+import t = require('tap')
+import {boot} from './helper'
 
 t.plan(7)
 

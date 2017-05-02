@@ -1,11 +1,9 @@
-'use strict'
-
 const LRU = require('lru-cache')
 const from = require('from2')
 const eos = require('end-of-stream')
 const maxAge = 500
 
-function monitoring (upring) {
+export default function monitoring (upring) {
   const lru = LRU({
     max: 100,
     maxAge
@@ -29,7 +27,7 @@ function monitoring (upring) {
     if (!key) {
       return
     }
-    const hash = upring._hashring.hash(key)
+    const hash = upring.hash(key)
     if (upring.allocatedToMe(hash)) {
       // max one value for each hash
       lru.set('' + hash, { key, hash })
@@ -66,4 +64,4 @@ function monitoring (upring) {
   })
 }
 
-module.exports = monitoring
+

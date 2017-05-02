@@ -2,17 +2,12 @@
   "name": "upring",
   "version": "0.14.8",
   "description": "application-level sharding on node.js streams",
-  "main": "upring.js",
-  "scripts": {
-    "test": "standard | snazzy && tap test/*.test.js",
-    "coverage": "tap --cov --coverage-report=html test/*.test.js",
-    "coveralls": "tap test/*test.js --cov --coverage-report=text-lcov | coveralls"
+  "author": "Matteo Collina <hello@matteocollina.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/upringjs/upring/issues"
   },
-  "precommit": "test",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/upringjs/upring.git"
-  },
+  "homepage": "https://github.com/upringjs/upring#readme",
   "keywords": [
     "ring",
     "hashring",
@@ -22,31 +17,62 @@
     "gossip",
     "streams"
   ],
-  "author": "Matteo Collina <hello@matteocollina.com>",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/upringjs/upring/issues"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/upringjs/upring.git"
   },
-  "homepage": "https://github.com/upringjs/upring#readme",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "clean": "rimraf lib",
+    "lint": "tslint --force --format verbose \"src/**/*.ts\"",
+    "build": "npm run clean && npm run lint && echo Using TypeScript && tsc --version && tsc --pretty",
+    "test": "npm run build && mocha --compilers ts:ts-node/register --recursive 'test/**/*-spec.ts'",
+    "coverage": "nyc --reporter=text --reporter=html --reporter=lcov mocha --compilers ts:ts-node/register",
+    "watch": "npm run build -- --watch",
+    "watch:test": "npm run test -- --watch"
+  },
+  "precommit": "test",
   "devDependencies": {
+    "@types/bluebird": "^3.5.3",
+    "@types/chai": "^3.5.1",
+    "@types/lodash": "^4.14.63",
+    "@types/mocha": "^2.2.41",
+    "@types/node": "^7.0.14",
+    "chai": "^3.5.0",
     "concat-stream": "^1.5.1",
-    "coveralls": "^2.11.14",
+    "coveralls": "^2.13.0",
     "farmhash": "^1.2.0",
     "flush-write-stream": "^1.0.0",
+    "mocha": "^3.3.0",
+    "nyc": "^10.2.0",
     "pre-commit": "^1.1.2",
+    "rimraf": "^2.6.1",
     "snazzy": "^6.0.0",
     "standard": "^9.0.0",
-    "tap": "^10.0.0"
+    "tap": "^10.0.0",
+    "ts-node": "^3.0.2",
+    "tslint": "^5.1.0",
+    "typescript": "^2.2.2"
   },
   "dependencies": {
+    "axon": "^2.0.3",
+    "axon-rpc": "^0.0.3",
     "bloomrun": "^3.0.0",
+    "bluebird": "^3.5.0",
     "end-of-stream": "^1.1.0",
     "fastzalgo": "^1.0.0",
     "from2": "^2.3.0",
     "functional-red-black-tree": "^1.0.1",
+    "jayson": "^2.0.3",
+    "lodash": "^4.17.4",
     "lru-cache": "^4.0.1",
     "network-address": "^1.1.0",
     "pino": "^4.0.0",
+    "pm2-axon-rpc": "^0.4.5",
     "pump": "^1.0.1",
     "swim-hashring": "^0.5.0",
     "tentacoli": "^0.6.0",

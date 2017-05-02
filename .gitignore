@@ -32,3 +32,9 @@ node_modules
 # Optional REPL history
 .node_repl_history
 .nyc_output
+src/**/*.js
+src/**/*.map
+test/**/*.js
+test/**/*.map
+dist
+.idea
