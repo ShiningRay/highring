@@ -33,6 +33,8 @@ declare class Hashring extends NodeJS.EventEmitter {
     on(event: 'move', listener: (event: Hashring.MoveEvent) => any):this
 
     on(event: 'steal', listener: (event: Hashring.StealEvent) => any):this
+
+    on(event: 'error', listener: (error: Error) => any):this
 }
 
 

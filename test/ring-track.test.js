@@ -48,7 +48,7 @@ boot(t, (one) => {
       })
 
     // let's join them in a cluster
-    one.join([two.whoami()], function (err) {
+    one.join([two.me()], function (err) {
       t.error(err, 'no error')
     })
   })

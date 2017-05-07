@@ -11,21 +11,21 @@ const TestModule = {
     }
 }
 
-function createServerClient () : [RPC.BaseServer, RPC.BaseClient]{
+async function createServerClient () : Promise<[RPC.BaseServer, RPC.BaseClient]>{
     let opt = {
         host: 'localhost',
         port: 22222,
         protocol: 'tcp'
     }
-    let server = JaysonRPC.createServer(opt, TestModule)
-    let client = JaysonRPC.createClient(opt)
+    let server = await JaysonRPC.createServer(opt, TestModule)
+    let client = await JaysonRPC.createClient(opt)
     return [server, client];
 }
 
 describe('Jayson JaysonRPC Module', () => {
     describe('#createServer', () => {
         it('creates servers and client', async () => {
-            let [server, client] = createServerClient()
+            let [server, client] = await createServerClient()
             // client.request('test').catch(console.log)
             let res = await client.request('test')
             expect(res.result).to.eq('test')
@@ -37,7 +37,7 @@ describe('Jayson JaysonRPC Module', () => {
 
     describe('#expose', () => {
         it('dynamicly defines methods', async() => {
-            let [server, client] = createServerClient()
+            let [server, client] = await createServerClient()
             let res = await client.request('newMethod');
             // console.log(res)
             expect(res.error).to.exist

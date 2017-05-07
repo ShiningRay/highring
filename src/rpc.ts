@@ -1,8 +1,16 @@
+
 export interface RPCModule {
     createClient: ClientFactory;
     createServer: ServerFactory;
     Server: ServerConstructor;
     Client: ClientConstructor;
+}
+
+interface Address {
+    address: string;
+    port: number;
+    addressType?: number | "udp4" | "udp6";
+    family?: 'IPv4' | 'IPv6';
 }
 
 
@@ -18,14 +26,16 @@ export interface BaseServer {
      * @param name
      * @param args
      */
-    call(name:string, args:any[]):Promise<any>;
+    call(key: string, name:string, args:any[], kwArgs?:{[key:string]:any}):Promise<any>;
+    address():Address;
     close();
 }
 
 export interface BaseClient {
     destroy();
     destroyed:boolean;
-    request(method, args?):Promise<any>;
+    request(key: string, method, kwArgs?:{[key:string]:any}):Promise<any>;
+    request(key: string, method, args?, kwArgs?:{[key:string]:any}):Promise<any>;
 }
 
 export type ServerConstructor = new() => BaseServer;

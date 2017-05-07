@@ -10,18 +10,18 @@ boot(t, (one) => {
     t.deepEqual(one.peers(true), [one.mymeta()], 'includes myself')
 
     one.on('peerUp', function (peer) {
-      t.equal(peer.id, two.whoami(), 'peer id matches')
+      t.equal(peer.id, two.me(), 'peer id matches')
       t.deepEqual(one.peers(), [peer], 'one peer')
       t.deepEqual(one.peers(true), [peer, one.mymeta()], 'two peers including myself')
       two.close()
     })
 
     one.on('peerDown', function (peer) {
-      t.equal(peer.id, two.whoami(), 'peer id matches')
+      t.equal(peer.id, two.me(), 'peer id matches')
     })
 
     // let's join them in a cluster
-    one.join([two.whoami()], function (err) {
+    one.join([two.me()], function (err) {
       t.error(err, 'no error')
     })
   })

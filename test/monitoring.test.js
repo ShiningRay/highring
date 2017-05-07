@@ -13,7 +13,7 @@ boot(t, (i) => {
     reply(null, {})
   })
 
-  const conn = i.peerConn(i.mymeta())
+  const conn = i.clientToPeer(i.mymeta())
 
   test('memoryUsage', { timeout: 5000 }, (t) => {
     t.plan(4)
@@ -38,7 +38,7 @@ boot(t, (i) => {
     }, (err, response) => {
       t.error(err)
       t.deepEqual(response, {
-        id: i.whoami(),
+        id: i.me(),
         upring: i.mymeta().meta.upring
       })
     })
@@ -58,7 +58,7 @@ boot(t, (i) => {
     }, (err, response) => {
       t.error(err)
       t.deepEqual(response, {
-        id: i.whoami(),
+        id: i.me(),
         upring: i.mymeta().meta.upring,
         hello: 'world',
         an: {
@@ -87,7 +87,7 @@ boot(t, (i) => {
 
       stream.on('data', function (data) {
         t.deepEqual(data, {
-          id: i.whoami(),
+          id: i.me(),
           keys: [{
             key: 'world',
             hash: i._hashring.hash('world')

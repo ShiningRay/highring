@@ -3,133 +3,146 @@
 
 import HashRing = require('swim-hashring')
 import networkAddress = require('network-address')
-import Promise = require('bluebird')
-Promise.config({
-    // Enable warnings
-    warnings: true,
-    // Enable long stack traces
-    longStackTraces: true,
-    // Enable cancellation
-    cancellation: true,
-    // Enable monitoring
-    monitoring: true
-});
+import Bluebird = require('bluebird')
 const pino = require('pino')
 const serializers = require('./serializers')
 import Replicator from './replicator'
 import monitoring from './monitoring';
 import {BaseClient, RPCModule, ServerFactory} from './rpc';
-import {isFunction, isString} from "util";
+import {isFunction, isString, isUndefined} from "util";
 import {merge} from 'lodash'
 import DefaultAdapter = require('./adapters/jayson')
+import {EventEmitter} from 'events' ;
 
 const defaultOptions = {
     host: networkAddress(),
     port: 0,
-    local: {
-        hashring: {
+    hashring: {
+        local: {
             meta: {
                 upring: {
-
+                    port: 0
                 }
             }
-        }
+
+        },
     },
-    logger: pino({ serializers }),
+    logger: pino({serializers}),
     rpc: DefaultAdapter
 }
 
 type PeerID = string;
 
-function sleep(timeout:number):Promise<void>{
-    return Promise.fromCallback(cb => setTimeout(cb, timeout))
+function makeOption(options) {
+
 }
 
-function makeOption(options){
-    options = merge(defaultOptions, options)
-    const hashringOpts = options.hashring || {}
-    hashringOpts.base = hashringOpts.base || options.base
-    hashringOpts.name = hashringOpts.name || options.name
-    hashringOpts.client = hashringOpts.client || options.client
-    hashringOpts.host = options.host
-    const local = hashringOpts.local = hashringOpts.local || {}
-    const meta = local.meta = local.meta || {}
-    meta.upring = {
-        address: options.host,
-        port: 23333 + Math.floor(Math.random() * 10)//options.port
-    }
-    console.log(hashringOpts)
-    console.log(meta)
-
-    return hashringOpts
-}
-
-export default class UpRing extends HashRing {
+export default class HighRing extends EventEmitter {
     protected ready: boolean = false;
     protected logger
     protected closed: boolean = false;
-
-
+    private swim;
     private _router
     private _server
-    private _peerConn: { [key: string]: BaseClient } = {}
+    private _peerClients: { [key: string]: BaseClient } = {}
     private _tracker
-
+    private _hashring: HashRing;
     private rpc: RPCModule;
-    private _initRpcModule(module:string | RPCModule){
-        if(isString(module)){
+
+    private _initRpcModule(module: string | RPCModule) {
+        if (isString(module)) {
             module = require(module);
         }
         module = <RPCModule>module;
 
-        if(!(isFunction(module.createServer) &&
+        if (!(isFunction(module.createServer) &&
             isFunction(module.createClient) &&
             isFunction(module.Client) &&
-            isFunction(module.Server))){
+            isFunction(module.Server))) {
             throw new TypeError('specific module has missing exports, does not satisify interface')
         }
         this.rpc = module
     }
-    constructor(options) {
-        super(makeOption(options))
-        options = Object.assign(defaultOptions, options)
+
+    constructor(private options) {
+        super()
+        // this.options = options
+        options = merge(options, defaultOptions)
+        const hashringOpts = options.hashring
+        hashringOpts.base = hashringOpts.base || options.base
+        hashringOpts.name = hashringOpts.name || options.name
+        hashringOpts.client = hashringOpts.client || options.client
+        hashringOpts.host = options.host
+        const local = hashringOpts.local
+        const meta = local.meta
+        meta.upring.address = options.host
+        options.hashring = hashringOpts;
         this._initRpcModule(options.rpc)
+        this.logger = options.logger ? options.logger.child({serializers}) : pino({serializers})
+    }
 
-        this.logger = options.logger ? options.logger.child({ serializers }) : pino({ serializers })
-
-        this.on('up', () => {
+    async start() {
+        this._server = await this.rpc.createServer({
+            host: this.options.host,
+            port: this.options.port
+        });
+        this.options.hashring.local.meta.upring = this._server.address()
+        this._hashring = new HashRing(this.options.hashring);
+        this._hashring.setMaxListeners(0)
+        this._hashring.on('up', () => {
             this.ready = true
-            this.logger = this.logger.child({ id: this.whoami() }) // TODO
+            this.logger = this.logger.child({id: this.me()}) // TODO
             // this.logger.info({ address: this._server.address() }, 'node up')
+            this.emit('up')
         })
 
-        this.on('steal', (info) => {
+        this._hashring.on('steal', (info) => {
             this.logger.trace(info, 'steal')
+            this.emit('steal', info)
         })
 
-        this.on('move', (info) => {
+        this._hashring.on('move', (info) => {
             this.logger.trace(info, 'move')
+            this.emit('move', info)
         })
+        this._hashring.on('error', this.emit.bind(this, 'error'))
+        this._hashring.on('peerUp', this.emit.bind(this, 'peerUp'))
+        this._hashring.on('peerDown', this.emit.bind(this, 'peerDown'))
+    }
 
-        this.rpc.createServer(options).then(server => {
-            this._server = server;
-        })
+    me() {
+        return this._hashring.whoami();
+    }
+
+    allocatedToMe(key: string) {
+        return this._hashring.allocatedToMe(key);
+    }
+
+    myMeta() {
+        return this._hashring.mymeta();
+    }
+
+    lookup(key) {
+        return this._hashring.lookup(key)
     }
 
     join(peers: string[] | string) {
         if (!Array.isArray(peers)) {
             peers = [peers]
         }
-        return Promise.fromCallback(cb => this.swim.join(peers, cb))
+        return Bluebird.fromCallback(cb => this.swim.join(peers, cb))
     }
 
-    async peerConn(peer) {
-        let conn = this._peerConn[peer.id]
+    async clientToPeer(peer) {
+        let conn = this._peerClients[peer.id]
 
-        if (!conn) {
-            this.logger.debug({ peer: peer }, 'connecting to peer')
-            conn = await this.setupConn(peer)
-            this._peerConn[peer.id] = conn;
+        if (isUndefined(conn)) {
+            this.logger.debug({peer: peer}, 'connecting to peer')
+            conn = await this.rpc.createClient({
+                host: peer.meta.upring.address,
+                port: peer.meta.upring.port
+            });
+            this._peerClients[peer.id] = conn;
         }
 
         return conn
@@ -139,13 +152,14 @@ export default class UpRing extends HashRing {
         this._server.expose(name, func)
     }
 
-    async request(target, method, args, _count=0) {
+    async request(target, method, args = [], kwArgs = {}, _count = 0) {
+        this.emit('beforeRequest', target, method, args, kwArgs)
         if (this.allocatedToMe(target)) {
-            this.logger.trace({ method, args }, 'local call')
-            return this._server.call(method, args);
+            this.logger.trace({method, args}, 'local call')
+            return this._server.call(target, method, args, kwArgs);
         } else {
             let peer = this.lookup(target);
-            this.logger.trace({ method, args, peer }, 'remote call')
+            this.logger.trace({method, args, peer}, 'remote call')
 
             let upring = peer.meta.upring
 
@@ -162,60 +176,38 @@ export default class UpRing extends HashRing {
                 _count++
             }
 
-            const conn = await this.peerConn(peer);
+            const conn = await this.clientToPeer(peer);
 
             if (conn.destroyed) {
-                while(_count < 3) {
+                while (_count < 3) {
 
                 }
-                await sleep(500)
+                // await sleep(500)
 
-                return this.request(target, method, args, _count)
+                return this.request(target, method, args, kwArgs, _count)
             }
 
-            return conn.request(method, args)
+            return conn.request(target, method, args, kwArgs)
         }
     }
 
-    close(): PromiseLike<any> {
+    async close() {
         if (this.closed) {
             return Promise.resolve();
         }
 
-        if (this._tracker) {
-            this._tracker.clear()
-        }
-
         this.closed = true
 
-        Object.keys(this._peerConn).forEach((id) => {
-            this._peerConn[id].destroy()
+        Object.keys(this._peerClients).forEach((id) => {
+            this._peerClients[id].destroy()
+            delete this._peerClients[id]
         })
-
         // const p = Promise.promisify(super.close, { context: this });
-        super.close()
-        return new Promise((resolve, reject) => {
-            this._server.close((err) => {
-                this.logger.info('closed')
-                this.emit('close')
-                if (err) {
-                    return reject(err)
-                }
-                return resolve()
-            })
-        })
+        this._hashring.close();
+        await this._server.close()
+        this.logger.info('closed')
+        this.emit('close')
     }
-
-    private async setupConn(peer): Promise<BaseClient> {
-        console.log(peer)
-        let c = await this.rpc.createClient({
-            host: peer.meta.upring.address,
-            port: peer.meta.upring.port
-        });
-        this._peerConn[peer.id] = c;
-        return c;
-    }
-
 
     // private _dispatch(req, reply) {
     //     if (!this.ready) {
@@ -244,5 +236,20 @@ export default class UpRing extends HashRing {
 
     /*toString(){
 
-    }*/
+     }*/
+}
+
+export function expose(opt: any = {}) {
+    opt = Object.assign({bind: true}, opt)
+    return function (target: any, propertyKey: string) {
+        let func = target[propertyKey];
+        let name = propertyKey;
+        if (opt.bind) {
+            func = func.bind(target)
+        }
+        if (opt.alias !== undefined) {
+            name = opt.alias
+        }
+        target._server.expose(name, func)
+    }
 }

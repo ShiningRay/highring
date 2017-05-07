@@ -17,7 +17,7 @@ export default function monitoring (upring) {
 
   upring.add('ns:monitoring,cmd:info', function (req, reply) {
     reply(null, Object.assign({
-      id: upring.whoami(),
+      id: upring.me(),
       upring: upring.mymeta().meta.upring
     }, upring.info))
   })
@@ -41,7 +41,7 @@ export default function monitoring (upring) {
         const keys = lru.values()
         lru.reset()
         cb(null, {
-          id: upring.whoami(),
+          id: upring.me(),
           keys
         })
       }, maxAge)

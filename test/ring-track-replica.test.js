@@ -41,7 +41,7 @@ boot(t, (one) => {
     // let's track it
     one.track(key, { replica: true })
       .once('move', function (newPeer) {
-        t.equal(two.whoami(), newPeer.id, 'destination id matches')
+        t.equal(two.me(), newPeer.id, 'destination id matches')
       })
       .on('replica', function () {
         t.fail('no replica event')
@@ -49,12 +49,12 @@ boot(t, (one) => {
 
     two.track(key, { replica: true })
       .on('replica', function (newPeer, oldPeer) {
-        t.equal(one.whoami(), newPeer.id, 'replica id matches')
+        t.equal(one.me(), newPeer.id, 'replica id matches')
         t.notOk(oldPeer, 'no older replica')
       })
 
     // let's join them in a cluster
-    one.join([two.whoami()], function (err) {
+    one.join([two.me()], function (err) {
       t.error(err, 'no error')
 
       one.replica(key, function () {

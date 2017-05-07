@@ -1,6 +1,7 @@
 import {getKey, bootTwo} from './helper'
 import {assert} from 'chai'
 
+
 process.on('unhandledRejection', (reason, p) => {
     console.log(reason)
     console.log(p)
@@ -14,21 +15,9 @@ describe('using the request router', () => {
             let i2Key = getKey(i2)
             // console.log(i1)
             // console.log(i2)
-            let res = await i1.request(i2Key, 'parse', [42])
-            assert.fail(res.error, 'no error')
-            assert.deepEqual(res.result, {
-                replying: 'i2'
-            }, 'response matches')
-
-            res = await i2.request(i1Key, 'parse', [42])
-            assert.fail(res.error)
-            assert.deepEqual(res.result, {
-                replying: 'i1'
-            }, 'response matches')
-
 
             i1.exposeMethod('parse', async (args) => {
-                // assert.equal(req.key, i1Key, 'key matches')
+                // assert.equal(req.key, i1Key, 'key matches')this._hashring.close();
                 assert.equal(args[0], 42, 'other key matches')
                 return {replying: 'i1'}
             })
@@ -38,6 +27,18 @@ describe('using the request router', () => {
                 assert.equal(args[0], 42, 'other key matches')
                 return {replying: 'i2'}
             })
+            // let res = await i1.request(i2Key, 'parse', [42])
+            let res = await i1.request(i2Key, 'parse', [42])
+            assert.isUndefined(res.error, 'no error')
+            assert.deepEqual(res.result, {
+                replying: 'i2'
+            }, 'response matches')
+
+            res = await i2.request(i1Key, 'parse', [42])
+            assert.isUndefined(res.error)
+            assert.deepEqual(res.result, {
+                replying: 'i1'
+            }, 'response matches')
             close().then(() => done());
         })
     })

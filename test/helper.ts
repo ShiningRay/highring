@@ -31,7 +31,7 @@ export function boot (parent, cb?) {
     const base = []
 
     if (parent) {
-        base.push(parent.whoami())
+        base.push(parent.me())
     }
 
     const instance = new upring(opts({
@@ -44,16 +44,17 @@ export function boot (parent, cb?) {
     instance.on('up', () => {
         cb(instance, done)
     })
+    return instance.start();
 }
 
 
 // boot two instances
 export function bootTwo (cb) {
-    boot((i1, done1) => {
+    return boot((i1, done1) => {
         console.log('i1 up')
-        boot(i1, (i2, done2) => {
+        return boot(i1, (i2, done2) => {
             console.log('i2 up')
-            cb(i1, i2, () => { return Promise.all[done1(), done2()] })
+            cb(i1, i2, () => Promise.all([done1(), done2()]) )
         })
     })
 }

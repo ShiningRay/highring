@@ -1,4 +1,4 @@
-import Promise = require('bluebird')
+import Bluebird = require('bluebird')
 import {server, client} from 'jayson/promise'
 import {BaseClient, BaseServer} from "../rpc";
 
@@ -14,6 +14,7 @@ export class Server implements BaseServer {
     private netServer;
 
     constructor(private options: Options, module: any, cb?) {
+        console.log('create server', options)
         options.protocol = options.protocol || 'tcp'
         this.server = server(module)
         this.module = module
@@ -27,12 +28,18 @@ export class Server implements BaseServer {
         return this.server.method(name, func);
     }
 
-    async call(name, args){
-        return this.module[name].apply(null,args)
+    async call(key, name, args){
+        args.push(key);
+        return Bluebird.fromCallback(cb => this.server.getMethod(name).execute(this.server,args,cb))
+        // return this.server.getMethod(name).execute(this.server,args)
     }
 
     close() {
-        return Promise.fromCallback(cb => this.netServer.close(cb));
+        return Bluebird.fromCallback(cb => this.netServer.close(cb));
+    }
+
+    address(){
+        return this.netServer.address();
     }
 }
 
@@ -41,11 +48,13 @@ export class Client implements BaseClient {
     private client: client;
 
     constructor(option: Options) {
+        console.log('create client', option)
         option.protocol = option.protocol || 'tcp'
         this.client = client[option.protocol](option)
     }
 
-    async request(method, args: any[] = []) {
+    async request(key, method, args: any[] = []) {
+        args.push(key);
         if(!this._destroyed)
             return this.client.request(method, args)
         else
@@ -69,5 +78,5 @@ export function createClient(options: Options) {
 }
 
 export function createServer(options: Options, module) {
-    return Promise.fromCallback(cb => new Server(options, module, cb))
+    return Bluebird.fromCallback(cb => new Server(options, module, cb))
 }
