@@ -1,5 +1,10 @@
 
 import upring from '../src/index'
+import Bluebird = require( 'bluebird')
+global.Promise = Bluebird;
+Bluebird.config({
+    longStackTraces: true
+})
 
 // returns a key allocated to the passed instance
 export function getKey (instance) {
@@ -38,6 +43,7 @@ export function boot (parent, cb?) {
         logLevel: 'error',
         base: base
     }))
+    instance.start();
 
     let done = instance.close.bind(instance)
 

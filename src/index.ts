@@ -8,11 +8,12 @@ const pino = require('pino')
 const serializers = require('./serializers')
 import Replicator from './replicator'
 import monitoring from './monitoring';
-import {BaseClient, RPCModule, ServerFactory} from './rpc';
-import {isFunction, isString, isUndefined} from "util";
+import {BaseClient, RPCModule} from './rpc';
+import {isArray, isFunction, isString, isUndefined} from "util";
 import {merge} from 'lodash'
 import DefaultAdapter = require('./adapters/jayson')
 import {EventEmitter} from 'events' ;
+import Peer = Hashring.Peer;
 
 const defaultOptions = {
     host: networkAddress(),
@@ -30,7 +31,7 @@ const defaultOptions = {
     logger: pino({serializers}),
     rpc: DefaultAdapter
 }
-
+const methodsToBeExposed = Symbol('methodsToBeExposed')
 type PeerID = string;
 
 function makeOption(options) {
@@ -64,21 +65,37 @@ export default class HighRing extends EventEmitter {
         this.rpc = module
     }
 
-    constructor(private options) {
+    constructor(private options: any = {}) {
         super()
         // this.options = options
         options = merge(options, defaultOptions)
+        this.logger = options.logger ? options.logger.child({serializers}) : pino({serializers})
+        this.logger.level = options.logLevel || 'trace'
         const hashringOpts = options.hashring
-        hashringOpts.base = hashringOpts.base || options.base
-        hashringOpts.name = hashringOpts.name || options.name
+        hashringOpts.base = hashringOpts.base || options.base || []
+        hashringOpts.name = hashringOpts.name || options.name || 'highring'
         hashringOpts.client = hashringOpts.client || options.client
         hashringOpts.host = options.host
+        if (!isArray(hashringOpts.base)) {
+            hashringOpts.base = [hashringOpts.base]
+        }
         const local = hashringOpts.local
         const meta = local.meta
         meta.upring.address = options.host
         options.hashring = hashringOpts;
         this._initRpcModule(options.rpc)
-        this.logger = options.logger ? options.logger.child({serializers}) : pino({serializers})
+
+
+    }
+
+    private  _initExposedMethods() {
+        console.log(this[methodsToBeExposed])
+        if (this[methodsToBeExposed] !== undefined) {
+            for (let {name, func} of this[methodsToBeExposed]) {
+                console.log(this[name] === func)
+                this.exposeMethod(name, func.bind(this))
+            }
+        }
     }
 
     async start() {
@@ -86,32 +103,48 @@ export default class HighRing extends EventEmitter {
             host: this.options.host,
             port: this.options.port
         });
+        this._initExposedMethods();
         this.options.hashring.local.meta.upring = this._server.address()
-        this._hashring = new HashRing(this.options.hashring);
-        this._hashring.setMaxListeners(0)
-        this._hashring.on('up', () => {
-            this.ready = true
-            this.logger = this.logger.child({id: this.me()}) // TODO
-            // this.logger.info({ address: this._server.address() }, 'node up')
-            this.emit('up')
-        })
 
-        this._hashring.on('steal', (info) => {
-            this.logger.trace(info, 'steal')
-            this.emit('steal', info)
-        })
 
-        this._hashring.on('move', (info) => {
-            this.logger.trace(info, 'move')
-            this.emit('move', info)
+        return new Promise((resolve, reject) => {
+            this._hashring = new HashRing(this.options.hashring);
+            this._hashring.setMaxListeners(0)
+            this.swim = this._hashring.swim;
+
+            this._hashring.on('steal', (info) => {
+                this.logger.trace(info, 'steal')
+                this.emit('steal', info)
+            })
+
+            this._hashring.on('move', (info) => {
+                this.logger.trace(info, 'move')
+                this.emit('move', info)
+            })
+            this._hashring.on('error', this.emit.bind(this, 'error'))
+            this._hashring.on('peerUp', this.emit.bind(this, 'peerUp'))
+            this._hashring.on('peerDown', this.emit.bind(this, 'peerDown'))
+
+            this._hashring.on('up', () => {
+                this.ready = true
+                this.logger = this.logger.child({id: this.me()}) // TODO
+                // this.logger.info({ address: this._server.address() }, 'node up')
+                this.emit('up')
+                resolve(this);
+            })
+
+            this._hashring.once('error', (err) => {
+                reject(err);
+            })
         })
-        this._hashring.on('error', this.emit.bind(this, 'error'))
-        this._hashring.on('peerUp', this.emit.bind(this, 'peerUp'))
-        this._hashring.on('peerDown', this.emit.bind(this, 'peerDown'))
     }
 
     me() {
         return this._hashring.whoami();
+    }
+
+    peers(includeMyself = false) {
+        return this._hashring.peers(includeMyself);
     }
 
     allocatedToMe(key: string) {
@@ -148,8 +181,27 @@ export default class HighRing extends EventEmitter {
         return conn
     }
 
+    async clientToKey(key) {
+        return this.clientToPeer(this.lookup(key));
+    }
+
+    address() {
+        return this._server.address();
+    }
+
     exposeMethod(name, func) {
         this._server.expose(name, func)
+    }
+
+    defineMethod(name, func) {
+        if (this[name] !== void 0) {
+            throw new Error(name + ' already defined')
+        }
+        this.exposeMethod(name, func)
+
+        this[name] = function (key, ...args) {
+            return this.request(key, name, args);
+        }
     }
 
     async request(target, method, args = [], kwArgs = {}, _count = 0) {
@@ -193,7 +245,7 @@ export default class HighRing extends EventEmitter {
 
     async close() {
         if (this.closed) {
-            return Promise.resolve();
+            return;
         }
 
         this.closed = true
@@ -234,22 +286,34 @@ export default class HighRing extends EventEmitter {
     }
 
 
-    /*toString(){
-
-     }*/
+    toString() {
+        let addr = this._server.address()
+        return `${this.constructor.name}@${this.me()}&${addr.address}:${addr.port}`
+    }
 }
 
 export function expose(opt: any = {}) {
     opt = Object.assign({bind: true}, opt)
-    return function (target: any, propertyKey: string) {
+    return function (target: any, propertyKey: string, descriptor) {
+        if (target[methodsToBeExposed] === void 0) {
+            target[methodsToBeExposed] = [];
+        }
+
         let func = target[propertyKey];
         let name = propertyKey;
-        if (opt.bind) {
-            func = func.bind(target)
-        }
+        // if (opt.bind) {
+        //     func = func.bind(target)
+        // }
         if (opt.alias !== undefined) {
             name = opt.alias
         }
-        target._server.expose(name, func)
+        target[methodsToBeExposed].push({name, func})
+        // delete target[propertyKey]
+
+        descriptor.value = function (key, ...args) {
+            return this.request(key, propertyKey, args)
+        }
+
+        return descriptor
     }
 }

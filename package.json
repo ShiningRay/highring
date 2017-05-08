@@ -1,13 +1,13 @@
 {
-  "name": "upring",
-  "version": "0.14.8",
+  "name": "highring",
+  "version": "0.0.1",
   "description": "application-level sharding on node.js streams",
-  "author": "Matteo Collina <hello@matteocollina.com>",
+  "author": "ShiningRay <tsowly@hotmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/upringjs/upring/issues"
+    "url": "https://github.com/ShiningRay/highring/issues"
   },
-  "homepage": "https://github.com/upringjs/upring#readme",
+  "homepage": "https://github.com/ShiningRay/highring#readme",
   "keywords": [
     "ring",
     "hashring",
@@ -19,7 +19,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/upringjs/upring.git"
+    "url": "git+https://github.com/ShiningRay/highring.git"
   },
   "main": "lib/index.js",
   "typings": "lib/index.d.ts",
@@ -76,7 +76,6 @@
     "pump": "^1.0.1",
     "reflect-metadata": "^0.1.10",
     "swim-hashring": "^0.5.0",
-    "tentacoli": "^0.6.0",
     "tinysonic": "^1.1.1"
   }
 }

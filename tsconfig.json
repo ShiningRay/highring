@@ -4,11 +4,14 @@
         "target": "es6",
         "noImplicitAny": false,
         "sourceMap": true,
-        "experimentalDecorators": true
+        "experimentalDecorators": true,
+        "lib": ["es2015"]
     },
     "include": [
         "*.ts",
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "test/**/*.ts",
+        "examples/**/*.ts"
     ],
     "exclude": [
         "node_modules"

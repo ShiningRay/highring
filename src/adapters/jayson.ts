@@ -25,7 +25,7 @@ export class Server implements BaseServer {
     }
 
     expose(name, func) {
-        return this.server.method(name, func);
+        return this.server.method(name, (args) => func(...args));
     }
 
     async call(key, name, args){
@@ -54,9 +54,12 @@ export class Client implements BaseClient {
     }
 
     async request(key, method, args: any[] = []) {
-        args.push(key);
-        if(!this._destroyed)
-            return this.client.request(method, args)
+        args.unshift(key);
+        if(!this._destroyed){
+            let res = await this.client.request(method, args)
+            console.log(res)
+            return res.result;
+        }
         else
             throw new Error('client is destroyed')
     }

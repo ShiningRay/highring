@@ -1,28 +1,32 @@
-import t = require('tap')
+
 import {boot} from './helper'
+import {assert} from 'chai'
+describe('meta', () => {
+  it('aaa', (done) => {
+    boot((one, closeOne) => {
+      boot(async (two, closeTwo) => {
+        assert.deepEqual(one.peers(), [], 'no peers')
+        assert.deepEqual(one.peers(true), [one.myMeta()], 'includes myself')
 
-t.plan(7)
+        one.on('peerUp', function (peer) {
+          assert.equal(peer.id, two.me(), 'peer id matches')
+          assert.deepEqual(one.peers(), [peer], 'one peer')
+          assert.deepEqual(one.peers(true), [peer, one.myMeta()], 'two peers including myself')
+          two.close()
+        })
 
-// boot two unrelated instance
-boot(t, (one) => {
-  boot(t, (two) => {
-    t.deepEqual(one.peers(), [], 'no peers')
-    t.deepEqual(one.peers(true), [one.mymeta()], 'includes myself')
+        one.on('peerDown', function (peer) {
+          assert.equal(peer.id, two.me(), 'peer id matches')
+          closeOne()
+          done();
+        })
 
-    one.on('peerUp', function (peer) {
-      t.equal(peer.id, two.me(), 'peer id matches')
-      t.deepEqual(one.peers(), [peer], 'one peer')
-      t.deepEqual(one.peers(true), [peer, one.mymeta()], 'two peers including myself')
-      two.close()
-    })
-
-    one.on('peerDown', function (peer) {
-      t.equal(peer.id, two.me(), 'peer id matches')
-    })
-
-    // let's join them in a cluster
-    one.join([two.me()], function (err) {
-      t.error(err, 'no error')
+        // let's join them in a cluster
+        await one.join([two.me()]);
+      })
     })
   })
 })
+
+// boot two unrelated instance
+

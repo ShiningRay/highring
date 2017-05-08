@@ -36,5 +36,7 @@ src/**/*.js
 src/**/*.map
 test/**/*.js
 test/**/*.map
+examples/**/*.js
+examples/**/*.map
 dist
 .idea

@@ -2,7 +2,7 @@
 /// <reference path="swim.d.ts" />
 
 declare class Hashring extends NodeJS.EventEmitter {
-    protected swim: swim;
+    public swim: swim;
     constructor(opts: Hashring.Options);
 
     allocatedToMe(key: number | string): boolean;
